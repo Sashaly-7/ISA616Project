@@ -1,0 +1,417 @@
+---
+title: "ISA616 Analytic Workflow"
+author: KUNZHAN LI
+date: "October 1,2020"
+
+output: 
+  html_document:
+    code_folding: show
+    df_print: paged
+    number_sections: yes
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache=TRUE,
+                      out.width="100%",
+                      warning=FALSE,
+                      message=FALSE,
+                      clean_cache=TRUE)
+```
+
+```{r software environment,echo=FALSE}
+sessionInfo()
+```
+
+## Manage Packages
+```{r pacman}
+if(require(pacman)==FALSE) install.packages("pacman")
+pacman::p_load(readxl,fpp2,ggplot2,scales,dplyr,tidyr,DataExplorer,forecast)
+```
+
+# Introduction
+Capital BikeShare is a bikeshare system offering new generation of bike rentals service to customers. In this data analysis project, I attempt to find out how factors affect the number of shared bike rental and use model to predict the number of shared bike rental for a specific day.By doing this analysis, Capital Bikeshare could prepare enough bikes for the customers, and therefore improves the customer services.
+
+* Business Value Proposition:
+![](BusinessValue.png)
+
+
+
+# Data Description
+The data source is from capitalbikes.com. It originally has 10886 observations and 12 variables.Variables are: "datetime","season","holiday","workingday","weather","temp","atemp","humidity"   "windspeed","casual","registered",and "count".
+* "datetime" is the date variable.
+* "season" is a categorical variable, in which "1" represents for spring, "2" represents for summer, "3" represents for fall,and "4" represents for winter.
+* "holiday" is a binary variable that tells whether the day is considered a holiday. 
+* "workingday" is a binary that tells whether the day is neither a weekend nor holiday.
+* "weather" is a categorical variable. "1"is Clear, Few clouds, Partly cloudy, Partly cloudy. "2" is Mist + Cloudy, Mist + Broken clouds, Mist + Few clouds, Mist."3"is Light Snow, Light Rain + Thunderstorm + Scattered clouds, Light Rain + Scattered clouds. "4"is Heavy Rain + Ice Pallets + Thunderstorm + Mist, Snow + Fog.
+* "temp",temperature in Celsius,is a numerical variable  
+* "atemp" is the numerical variable that stands for "feels like" temperature in Celsius.
+* "humidity" is the numerical variable that stands for relative humidity
+* "windspeed",wind speed, is a numerical variable.
+* "casual" is the numerical variable that stands for the number of non-registered user rentals initiated.
+* "registered" is the numerical variable that stands for the number of registered user rentals initiated.
+* "count" is the numerical variable that stands for the number of total rentals.
+
+```{r read data}
+setwd("C:\\Users\\yolan\\Downloads\\ISA616HW\\week 6\\Analytics Workflow\\BikeShare")
+data <- read_xlsx("Bike_sharing Project Data.xlsx")
+```
+* data summary
+```{r}
+head(data)
+tail(data)
+str(data)
+```
+```{r summarize }
+summary(data)
+dim(data)
+names(data)
+```
+
+### checking missing data: There is no missing data.
+```{r missing data}
+is.na(data)
+sum(is.na(data))
+```
+
+```{r DataExplore }
+introduce(data)
+```
+
+
+# Data Preprocessing
+## variable type corretion
+The variables:"season","holiday","workingday",and "weather" are not in correct  variable type, so first I need to change these categorical variables to factor.
+```{r}
+data$season <- as.factor(data$season)
+data$holiday <- as.factor(data$holiday)
+data$workingday <- as.factor(data$workingday)
+data$weather <- as.factor(data$weather)
+```
+
+## create new variables
+I create three new categorical variables: "Year","Month", "Time", and label them as factors so that I can analyze the their relationship with the number of shared bike rental respectively.
+```{r}
+data$Year <- sapply(strsplit(as.character(data$datetime), "-"), "[", 1)
+data$Month <- sapply(strsplit(as.character(data$datetime), "-"), "[", 2)
+data$Time <- sapply(strsplit(as.character(data$datetime), " "), "[", 2)
+
+data$Year <- as.factor(data$Year)
+data$Month <- as.factor(data$Month)
+data$Time <- as.factor(data$Time)
+```
+
+Now, check the level of the variables.
+```{r,level}
+sapply(data, levels)
+```
+## check abnormal and outlier
+Next, I would like to look at the summary statistics and plots to check if there is any abnormal data or outlier. Remove them if they exist.
+
+```{r}
+summary(data)
+```
+
+* There is no abnormal data or outlier.
+
+## calculate proportions
+I would like to calculate the proportions of the number of shared bike non-registered and registered user rental over the total number of shared bike rental.
+```{r}
+sum(data$casual)
+sum(data$count)
+```
+```{r casual proportion}
+392135/2085476
+```
+```{r}
+sum(data$registered)
+```
+```{r}
+ 1693341/2085476
+```
+Around 18.80% of the shared bike rentals are initiated by non-registered users, and 81.20% of the shared bike rentals are initiated by registered users.
+
+# Data Analysis
+
+## Data Visualization
+### plots
+First,I want to look at the plots for the variables.
+
+Below see a summary of the qualitative variables.
+```{r}
+plot_bar(data)
+```
+Below see a summary of the quantitative variables. "casual", "count", and"registered" are right skewed.
+
+```{r}
+plot_histogram(data)
+```
+
+### quantitative variables correlation 
+ I would like to see which quantitative variables are highly correlated, especially how other variables are corralated with "casual","registered",and "count".
+
+From the correlation plot below, I can tell that:
+* temperature and feel like temperature are moderately positive correlated with the number of non-registered user rentals initiated, the number of total rentals,and the number of registered user rentals initiated, respectively,all other factors equal. 
+* The correlation between the number of non-registered user rentals and the temperature is stronger than the correlation between other variables. 
+* "humidity" is moderately negative correlated with "casual","count", and "registered". 
+* The correlation between ""humidity" and "casual" is stronger."windspeed" has weak negative linear relationship with "casual","registered" and "count".I will remove this variable in the model.
+
+I can conclude that the number of shared bike rentals is moderately positively affected by temperature,"feels like" temperature, and negatively affected by humidity of a specific day. Also, temperature, "feels like" temperature, and humidity have larger effect on the number of non-registered user rentals initiated than the number of registered user rentals initiated.
+```{r}
+plot_correlation(data,type = "c")
+```
+
+```{r}
+nums <- unlist(lapply(data, is.numeric)) 
+data.num <- data[,nums]
+M<-cor(data.num, use = "complete.obs")
+library("corrplot")
+corrplot(M, method='circle')
+```
+### qualitative variables relationship
+I would like to see the relationship between "casual","registered","count" and qualitative variables,"season","holiday","workingday","weather","Year","Month","Time"."Holiday" and "workingday" are binary variables. I would like to do regression analysis.
+
+3.1 Let's look at the relationship between "season" and "casual","registered","count", respectively.
+
+
+```{r}
+plot(data$season,data$casual)
+plot(data$season,data$registered)
+plot(data$season,data$count)
+```
+
+* we can observe that Summer and Fall have lager number of shared bike rental overall.However, there are less shared bike used in winter for non-register customers than registered customers.
+
+
+3.2 Let's look at "holiday" and "casual","registered","count", respectively.
+
+```{r}
+plot(data$holiday,data$casual)
+plot(data$holiday,data$registered)
+plot(data$holiday,data$count)
+```
+* we can see that more customers use shared rental bikes when it is not a holiday. However,for non-registered customers, the number of shared rental bikes used is large.
+
+
+3.3 Let's look at the relationship between "workingday" and "casual","registered","count", respectively.
+```{r}
+plot(data$workingday,data$casual)
+plot(data$workingday,data$registered)
+plot(data$workingday,data$count)
+```
+* we can observe that most non-registered customers use shared bike on non weekday, while most registered customers use shared bike on weekdays.
+
+
+3.4 Let's look at "weather" and "casual","registered","count", respectively.
+
+The majority of the customers use shared bikes when weather is in condition "1", which is Clear, Few clouds, Partly cloudy, Partly cloudy.When weather is is in worse condition("2","3","4"), fewer customers use shared bikes. In weather condition "4" The number of total shared bike rental is the smallest,only 164.
+
+
+```{r}
+plot(data$weather,data$casual)
+plot(data$weather,data$registered)
+plot(data$weather,data$count)
+```
+
+
+3.5 Let's look at "Year" and "casual","registered","count", respectively.
+
+```{r}
+plot(data$Year,data$casual)
+plot(data$Year,data$registered)
+plot(data$Year,data$count)
+```
+* Overall,the number of shared bike rentals has increased in 2012, compared with that of 2011. 
+
+
+3.6 Let's look at "Month" and "casual","registered","count", respectively.
+```{r}
+plot(data$Month,data$casual)
+plot(data$Month,data$registered)
+plot(data$Month,data$count)
+```
+* Overall, the number of shared bike rentals is largest on September,and is lowest on January.
+
+
+3.7 Let's look at "Time" and "casual","registered","count", respectively.
+```{r}
+plot(data$Time,data$casual)
+plot(data$Time,data$registered)
+plot(data$Time,data$count)
+```
+
+* Most of customers use shared bike between 06:00:00 and 20:00:00. Most of non-registered users use shared bike between 08:00:00 and 23:00:00, while most of the registered users use shared from 07:00:00 to 08:00:00 and 17:00:00 to 19:00:00. 
+
+## Model
+
+### Principal Components Analysis (PCA)
+I would like to look at PCA on all of the numerical variables in the data.
+```{r}
+pcs.all<-prcomp(data[,c(6:12)], scale=T)
+summary(pcs.all)
+```
+
+```{r}
+plot(pcs.all)
+```
+
+```{r}
+pcs.all$rotation[,1:3]
+```
+
+* I would like to check which variable I should include in the linear regression model.In order to prevent overfitting, partition the housing data. I’m going to put 60% in the training sample and 40% in the validation sample.
+
+```{r set seed}
+set.seed(13)
+```
+
+```{r randomly choose traning data}
+trainIndex = sample(1:nrow(data), size = round(0.6*nrow(data)), replace=FALSE)
+head(trainIndex, 10)
+data.train<-data[trainIndex, ]
+data.valid<-data[-trainIndex, ]
+```
+check the dimension of the training data set and validation data set
+
+```{r dim}
+dim(data.train)
+dim(data.valid)
+```
+
+
+```{r}
+head(data.train)
+```
+
+First I fit the model with all variables.
+### Full Regression Model:
+```{r}
+reg<-lm(count~., data=data.train)
+summary(reg)
+```
+* I can see that: As temperature increases by 1 Celsius degree, the number of total shared bike rentals increase by 5.012e-14, all other factors remain equal.As "feels like" temperature increases bu 1 Celsius degree, the number of total shared bike rentals  decrease by -8.805e-15, all other factors equal.As humidity increase by 1 unit, the number of total shared bike rentals increase by 7.764e-15, assuming everything else is constant. If it is a workday, the number of total shared bike rentals would be 4.401e-14 unit less than that of a non workday, assuming everything else is constant. If it is a holiday, the number of total shared bike rental would be 4.401e-14 less than that of a non holiday. The results does not match with the observations from the graphs above.We get the result that humidity and the number of total shared bike rentals are negatively correlated and during workday there are more shared bike rentals than non-workday. I will perform stepwise model to see whether there is a better fit model.
+
+I did full regression for "casual" and "registered" below.
+```{r}
+reg2<-lm(casual~., data=data.train)
+summary(reg2)
+```
+```{r}
+reg3<-lm(registered~., data=data.train)
+summary(reg3)
+```
+
+### Perform stepwise regression 
+```{r}
+null<-lm(count~1, data=data.train)
+lm.step<-step(null, scope=list(lower=null, upper=reg), direction="both", trace=0)
+summary(lm.step)
+```
+
+stepwise regression for "casual","registered":
+
+```{r}
+null2<-lm(casual~1, data=data.train)
+lm.step2<-step(null2, scope=list(lower=null2, upper=reg2), direction="both", trace=0)
+summary(lm.step2)
+```
+```{r}
+null3<-lm(registered~1, data=data.train)
+lm.step3<-step(null3, scope=list(lower=null3, upper=reg3), direction="both", trace=0)
+summary(lm.step3)
+```
+* The stepwise regression is not useful because it has leave out important variables.
+* I would like to compare prediction accuracy in order to choose which model to use.  I Calculate RMSE on the training data.
+```{r}
+p.reg <- predict(reg,newdata = data.train)
+p.step<-predict(lm.step, newdata=data.train)
+head(p.reg)
+head(p.step)
+```
+
+I would like to get the RMSE to see which model gives best precision on the validation data.
+```{r}
+accuracy(p.reg, data.train$count)
+```
+```{r}
+accuracy(p.step, data.train$count)
+```
+### Create New Model 
+```{r}
+lmCount= lm(count~season+holiday+workingday+weather+temp+atemp+humidity+Year+Month+Time,data=data)
+summary(lmCount)
+```
+This regression model explains 69.2% of the sample variation in the number of total shared bike rentals.
+
+```{r}
+lmCasual = lm(casual~season+holiday+workingday+weather+temp+atemp+humidity+Year+Month+Time,data=data)
+summary(lmCasual)
+```
+* This regression model explains around 58.92% of the sample variation in the number of total shared bike rentals.
+
+```{r}
+lmRegistered= lm(registered~season+holiday+workingday+weather+temp+atemp+humidity+Year+Month+Time,data=data)
+summary(lmRegistered)
+```
+This regression model explains 69.03% of the sample variation in the number of total shared bike rentals.
+
+* The new models match the observations of the graphs I plot before.
+Then,I would like to compare prediction accuracy in order to choose which model to use.  I Calculate RMSE on the training data.
+
+```{r}
+p.reg <- predict(reg,newdata = data.train)
+p.lmCount<-predict(lmCount, newdata=data.train)
+head(p.reg)
+head(p.lmCount)
+```
+
+I would like to get the RMSE to see which model gives best precision on the validation data.
+```{r}
+accuracy(p.reg, data.train$count)
+```
+```{r}
+accuracy(p.lmCount, data.train$count)
+```
+* The new model has higher accuracy. I will do the same process for"casual" and "registered" below to see is it also the better model for "casual" and "registered".
+
+```{r}
+p.reg2 <- predict(reg2,newdata = data.train)
+p.lmCasual<-predict(lmCasual, newdata=data.train)
+head(p.reg2)
+head(p.lmCasual)
+```
+```{r}
+accuracy(p.reg2, data.train$casual)
+```
+```{r}
+accuracy(p.lmCasual, data.train$casual)
+```
+```{r}
+p.reg3 <- predict(reg3,newdata = data.train)
+p.lmRegistered<-predict(lmRegistered, newdata=data.train)
+head(p.reg3)
+head(p.lmRegistered)
+```
+```{r}
+accuracy(p.reg3, data.train$registered)
+```
+```{r}
+accuracy(p.lmRegistered,data.train$registered)
+```
+
+The new models have higher accuarcy for "casual" and "registered".
+The new models are the best models.
+
+# Conclusion
+The goal of the project is to estimate the number of shared bike rental for a specific day for Capital Bike Share. The struggle of the Capital Bike is that the number of shared bike rental number is affected by numerical variables,such as "temperature","feels like" temperature, "humidity", that are changing everyday.By using the model,the customer, Capital Bike Share, would be able to predict the number of shared bike needed by its customers with information of a day,and therefore improve the customer service.
+
+This Data analysis help to estimate how do "season","holiday","workingday", "weather","temperature","feels like" temperature, "humidity","Year","Month","Time" affect the number of Capital Bike Share rental for non-registered, registered, total users. The model I use is the stepwise regression model which matches the result from correlation plot and other graphs we plot. Also, it has better precision in RMSE calculation.
+In the new regression model,as temperature increases by 1 Celsius degree, the number of total shared bike rentals increase by around 2, all other factors remain equal.As "feels like" temperature increases bu 1 Celsius degree, the number of total shared bike rentals increase by 3, all other factors equal.As humidity increase by 1 unit, the number of total shared bike rentals decrease by around 1 unit , assuming everything else is constant. If it is a workday, the number of total shared bike rentals would be around 2 unit more than that of a non workday, assuming everything else is constant. If it is a holiday, the number of total shared bike rental would be around 6 unit more than that of a non holiday,assuming everything else is constant.If it is weather 2 on a day, The total number of shared bike rental would be 11 unit less than that of the weather1, assuming everything else is constant.If it is weather 3 on a day, The total number of shared bike rental would be 69 unit less than that of weather1, assuming everything else is constant.If it is weather 4 on a day, the total number of shared bike rental would be 173 unit less than that of weather1, assuming everything else is constant. 
+During 07:00:00 to 20:00:00 customers demand most of the shared rental bikes.The peaks are 08:00:00:00 and 17:00:00 to 18:00:00
+
+To improve the customer service, Capital Bike Share should prepare more bikes when the weather is  Clear, Few clouds, Partly cloudy, Partly cloudy and  when the time is 08:00:00:00 or between 17:00:00 and 18:00:00.
+
