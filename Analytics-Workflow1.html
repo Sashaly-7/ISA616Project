@@ -3489,12 +3489,16 @@ head(p.reg3)</code></pre>
 <pre class="r"><code>accuracy(p.step3,data.valid$registered)</code></pre>
 <pre><code>##                 ME     RMSE      MAE MPE MAPE
 ## Test set 0.2083659 130.3313 95.66771 NaN  Inf</code></pre>
-<p>The full linear regression model has higher accuracy for “count” and “registered”.However, the difference are small. The variations for the two model are also almost the same. I choose to use full linear regression model because it give us higher accuracy for registered user and total user. # Conclusion The goal of the project is to estimate the number of shared bike rental for a specific day for Capital Bike Share. The struggle of the Capital Bike is that the number of shared bike rental number is affected by numerical variables,such as “temperature”,“humidity”, that are changing everyday.By using full linear regression model,the customer, Capital Bike Share, would be able to predict the number of shared bike needed by its customers with information of a day,and therefore improve the customer service.</p>
+<p>The full linear regression model has higher accuracy for “count” and “registered”.However, the difference are small. The variations for the two model are also almost the same. I choose to use full linear regression model because it give us higher accuracy for registered user and total user.</p>
+</div>
+</div>
+</div>
+<div id="conclusion" class="section level1">
+<h1><span class="header-section-number">5</span> Conclusion</h1>
+<p>The goal of the project is to estimate the number of shared bike rental for a specific day for Capital Bike Share. The struggle of the Capital Bike is that the number of shared bike rental number is affected by numerical variables,such as “temperature”,“humidity”, that are changing everyday.By using full linear regression model,the customer, Capital Bike Share, would be able to predict the number of shared bike needed by its customers with information of a day,and therefore improve the customer service.</p>
 <p>This Data analysis help to estimate how do “season”,“holiday”,“workingday”, “weather”,“temperature”, “humidity”,“Month”,“Time” affect the number of Capital Bike Share rental for non-registered, registered, total users. The model I use is the stepwise regression model which matches the result from correlation plot and other graphs we plot. Also, it has better precision in RMSE calculation for registered users.</p>
 <p>During 07:00:00 to 20:00:00 customers demand most of the shared rental bikes.The peaks are 08:00:00:00 and 17:00:00 to 18:00:00</p>
 <p>To improve the customer service, Capital Bike Share should prepare more bikes when the weather is Clear, Few clouds, Partly cloudy, Partly cloudy and when the time is 08:00:00:00 or between 17:00:00 and 18:00:00.</p>
-</div>
-</div>
 </div>
 
 
