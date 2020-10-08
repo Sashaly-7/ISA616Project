@@ -419,6 +419,7 @@ accuracy(p.step3,data.valid$registered)
 
 The full linear regression model has higher accuracy for "count" and "registered".However, the difference are small. The variations for the two model are also almost the same.
 I choose to use full linear regression model because it give us higher accuracy for registered user and total user.
+
 # Conclusion
 The goal of the project is to estimate the number of shared bike rental for a specific day for Capital Bike Share. The struggle of the Capital Bike is that the number of shared bike rental number is affected by numerical variables,such as "temperature","humidity", that are changing everyday.By using full linear regression model,the customer, Capital Bike Share, would be able to predict the number of shared bike needed by its customers with information of a day,and therefore improve the customer service.
 
